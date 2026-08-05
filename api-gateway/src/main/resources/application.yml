@@ -9,13 +9,21 @@ spring:
     gateway:
       server:
         webmvc:
-          discovery:
-            locator:
-              enabled: true
-              lower-case-service-id: true
+          routes:
+            - id: auth-service
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/api/auth/**
+
+            - id: product-service
+              uri: lb://PRODUCT-SERVICE
+              predicates:
+                - Path=/api/products/**
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
 
+jwt:
+  secret: 1234567890123456789012345678901234567890123456789012345678901234
