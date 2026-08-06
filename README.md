@@ -220,11 +220,3 @@ Start the services in the following order:
 
 **Ramesh Paswan**
 
-Java Backend Developer
-
-GitHub: https://github.com/YOUR_USERNAME
-
-LinkedIn: https://linkedin.com/in/YOUR_PROFILE
-
----
-⭐ If you like this project, consider giving it a star.
