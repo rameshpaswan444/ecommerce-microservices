@@ -1,6 +1,8 @@
 package com.inventory_service.controller;
 
 import com.inventory_service.dto.request.InventoryRequest;
+import com.inventory_service.dto.request.ReleaseInventoryRequest;
+import com.inventory_service.dto.request.ReserveInventoryRequest;
 import com.inventory_service.dto.response.InventoryResponse;
 import com.inventory_service.service.InventoryService;
 import jakarta.validation.Valid;
@@ -74,5 +76,27 @@ public class InventoryController {
             @PathVariable Long id) {
 
         inventoryService.deleteInventory(id);
+    }
+
+    @PostMapping("/{productId}/reserve")
+    public InventoryResponse reserveInventory(
+            @PathVariable Long productId,
+            @Valid @RequestBody ReserveInventoryRequest request) {
+
+        return inventoryService.reserveInventory(
+                productId,
+                request.getQuantity()
+        );
+    }
+
+    @PostMapping("/{productId}/release")
+    public InventoryResponse releaseInventory(
+            @PathVariable("productId") Long productId,
+            @RequestBody ReleaseInventoryRequest request) {
+
+        return inventoryService.releaseInventory(
+                productId,
+                request.getQuantity()
+        );
     }
 }

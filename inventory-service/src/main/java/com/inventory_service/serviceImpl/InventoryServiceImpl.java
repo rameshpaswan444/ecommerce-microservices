@@ -3,6 +3,7 @@ package com.inventory_service.serviceImpl;
 import com.inventory_service.dto.request.InventoryRequest;
 import com.inventory_service.dto.response.InventoryResponse;
 import com.inventory_service.entity.Inventory;
+import com.inventory_service.exception.InsufficientStockException;
 import com.inventory_service.exception.ResourceNotFoundException;
 import com.inventory_service.mapper.InventoryMapper;
 import com.inventory_service.repository.InventoryRepository;
@@ -10,9 +11,11 @@ import com.inventory_service.service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class InventoryServiceImpl implements InventoryService {
 
     private final InventoryRepository repository;
@@ -103,6 +106,69 @@ public class InventoryServiceImpl implements InventoryService {
         inventory.setStatus(request.getStatus());
 
         inventory.setSku(request.getSku());
+
+        return mapper.toResponse(repository.save(inventory));
+    }
+
+    @Override
+    public InventoryResponse reserveInventory(
+            Long productId,
+            Integer quantity) {
+
+        Inventory inventory = repository.findByProductId(productId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Inventory not found for product: " + productId));
+
+        if (inventory.getAvailableQuantity() < quantity) {
+            throw new InsufficientStockException(
+                    "Insufficient stock for product: "
+                            + productId
+                            + ". Available: "
+                            + inventory.getAvailableQuantity()
+                            + ", Requested: "
+                            + quantity
+            );
+        }
+
+        inventory.setAvailableQuantity(
+                inventory.getAvailableQuantity() - quantity
+        );
+
+        inventory.setReservedQuantity(
+                inventory.getReservedQuantity() + quantity
+        );
+
+        return mapper.toResponse(repository.save(inventory));
+    }
+
+    @Override
+    public InventoryResponse releaseInventory(
+            Long productId,
+            Integer quantity) {
+
+        Inventory inventory = repository.findByProductId(productId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Inventory not found for product: " + productId));
+
+        if (inventory.getReservedQuantity() < quantity) {
+            throw new IllegalArgumentException(
+                    "Cannot release more stock than reserved. "
+                            + "Reserved: "
+                            + inventory.getReservedQuantity()
+                            + ", Requested: "
+                            + quantity
+            );
+        }
+
+        inventory.setReservedQuantity(
+                inventory.getReservedQuantity() - quantity
+        );
+
+        inventory.setAvailableQuantity(
+                inventory.getAvailableQuantity() + quantity
+        );
 
         return mapper.toResponse(repository.save(inventory));
     }

@@ -33,6 +33,17 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/inventories/**").permitAll()
 
+                        // Reserve inventory - authenticated users
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/inventories/*/reserve"
+                        ).authenticated()
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/inventories/*/release"
+                        ).authenticated()
+
                         // Admin only
                         .requestMatchers(HttpMethod.POST,
                                 "/api/inventories/**").hasRole("ADMIN")

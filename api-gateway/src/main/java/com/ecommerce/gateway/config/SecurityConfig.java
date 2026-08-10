@@ -34,6 +34,20 @@ public class SecurityConfig {
                                 "/api/auth/register"
                         ).permitAll()
 
+                        // Product GET APIs are public
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.GET,
+                                "/api/products/**"
+                        ).permitAll()
+
+                        // Orders require authentication
+                        .requestMatchers("/api/orders/**")
+                        .authenticated()
+
+                        // Inventory requires authentication
+                        .requestMatchers("/api/inventories/**")
+                        .authenticated()
+
                         // Everything else requires authentication
                         .anyRequest().authenticated()
                 )
