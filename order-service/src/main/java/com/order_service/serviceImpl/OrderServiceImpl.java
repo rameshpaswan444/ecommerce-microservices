@@ -1,14 +1,13 @@
 package com.order_service.serviceImpl;
 
 import com.order_service.client.InventoryClient;
+import com.order_service.client.PaymentClient;
 import com.order_service.client.ProductClient;
 import com.order_service.dto.request.CreateOrderRequest;
+import com.order_service.dto.request.CreatePaymentRequest;
 import com.order_service.dto.request.OrderItemRequest;
 import com.order_service.dto.request.ReserveInventoryRequest;
-import com.order_service.dto.response.InventoryResponse;
-import com.order_service.dto.response.OrderItemResponse;
-import com.order_service.dto.response.OrderResponse;
-import com.order_service.dto.response.ProductResponse;
+import com.order_service.dto.response.*;
 import com.order_service.entity.Order;
 import com.order_service.entity.OrderItem;
 import com.order_service.enums.OrderStatus;
@@ -33,6 +32,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderItemRepository orderItemRepository;
     private final ProductClient productClient;
     private final InventoryClient inventoryClient;
+    private final PaymentClient paymentClient;
 
     @Override
     public OrderResponse createOrder(CreateOrderRequest request) {
@@ -51,19 +51,16 @@ public class OrderServiceImpl implements OrderService {
 
         for (OrderItemRequest itemRequest : request.getItems()) {
 
-            // 1. Get product information
             ProductResponse product =
                     productClient.getProductById(
                             itemRequest.getProductId()
                     );
 
-            // 2. Get inventory information
             InventoryResponse inventory =
                     inventoryClient.getInventoryByProductId(
                             itemRequest.getProductId()
                     );
 
-            // 3. Check stock
             if (inventory.getAvailableQuantity()
                     < itemRequest.getQuantity()) {
 
@@ -84,7 +81,6 @@ public class OrderServiceImpl implements OrderService {
                             .build()
             );
 
-            // 4. Calculate subtotal
             BigDecimal unitPrice = product.getPrice();
 
             BigDecimal subtotal =
@@ -94,7 +90,6 @@ public class OrderServiceImpl implements OrderService {
                             )
                     );
 
-            // 5. Create order item
             OrderItem item = OrderItem.builder()
                     .orderId(order.getId())
                     .productId(product.getId())
@@ -107,16 +102,51 @@ public class OrderServiceImpl implements OrderService {
 
             orderItemRepository.save(item);
 
-            // 6. Add to total
             totalAmount = totalAmount.add(subtotal);
         }
 
-        // 7. Set final order total
         order.setTotalAmount(totalAmount);
 
         orderRepository.save(order);
 
+        CreatePaymentRequest paymentRequest =
+                CreatePaymentRequest.builder()
+                        .orderId(order.getId())
+                        .userId(order.getUserId())
+                        .amount(totalAmount)
+                        .paymentMethod("CASH_ON_DELIVERY")
+                        .build();
+
+        PaymentResponse payment =
+                paymentClient.createPayment(paymentRequest);
+
+        System.out.println(
+                "Payment created: "
+                        + payment.getPaymentNumber()
+        );
+
         return mapToResponse(order);
+    }
+
+    @Override
+    public OrderResponse confirmPayment(Long id) {
+
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Order not found with id: " + id));
+
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new IllegalStateException(
+                    "Order cannot be confirmed from status: "
+                            + order.getStatus());
+        }
+
+        order.setStatus(OrderStatus.CONFIRMED);
+
+        return mapToResponse(
+                orderRepository.save(order)
+        );
     }
 
     @Override
@@ -147,9 +177,21 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() ->
                         new RuntimeException("Order not found with id: " + id));
 
+        OrderStatus currentStatus = order.getStatus();
+        OrderStatus newStatus;
+
+        try {
+
+            newStatus = OrderStatus.valueOf(status.toUpperCase());
+        }catch (IllegalArgumentException ex){
+            throw new IllegalArgumentException("Invalid order status:" + status);
+        }
+
+        validateStatusTransition(currentStatus, newStatus);
+
         order.setStatus(
-                OrderStatus.valueOf(status.toUpperCase())
-        );
+               newStatus);
+
 
         return mapToResponse(orderRepository.save(order));
     }
@@ -240,5 +282,57 @@ public class OrderServiceImpl implements OrderService {
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .build();
+    }
+
+    private void validateStatusTransition(
+            OrderStatus currentStatus,
+            OrderStatus newStatus) {
+
+        if (currentStatus == newStatus) {
+            throw new IllegalStateException(
+                    "Order is already in " + currentStatus + " status"
+            );
+        }
+
+        boolean validTransition = false;
+
+        switch (currentStatus) {
+
+            case PENDING:
+                validTransition =
+                        newStatus == OrderStatus.CONFIRMED
+                                || newStatus == OrderStatus.CANCELLED;
+                break;
+
+            case CONFIRMED:
+                validTransition =
+                        newStatus == OrderStatus.PROCESSING
+                                || newStatus == OrderStatus.CANCELLED;
+                break;
+
+            case PROCESSING:
+                validTransition =
+                        newStatus == OrderStatus.SHIPPED;
+                break;
+
+            case SHIPPED:
+                validTransition =
+                        newStatus == OrderStatus.DELIVERED;
+                break;
+
+            case DELIVERED:
+            case CANCELLED:
+                validTransition = false;
+                break;
+        }
+
+        if (!validTransition) {
+            throw new IllegalStateException(
+                    "Invalid order status transition: "
+                            + currentStatus
+                            + " -> "
+                            + newStatus
+            );
+        }
     }
 }

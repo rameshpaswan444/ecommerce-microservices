@@ -1,16 +1,17 @@
 package com.order_service.controller;
 
 import com.order_service.client.InventoryClient;
+import com.order_service.client.PaymentClient;
 import com.order_service.dto.request.CreateOrderRequest;
-import com.order_service.dto.response.InventoryResponse;
 import com.order_service.dto.response.OrderResponse;
 import com.order_service.service.OrderService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @RestController
@@ -20,6 +21,8 @@ public class OrderController {
 
     private final OrderService orderService;
     private final InventoryClient inventoryClient;
+    private final PaymentClient paymentClient;
+
 
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(
@@ -52,9 +55,18 @@ public class OrderController {
             @PathVariable Long id,
             @RequestParam String status) {
 
+        System.out.println(
+                "STATUS ENDPOINT HIT: id="
+                        + id
+                        + ", status="
+                        + status
+        );
+
         return ResponseEntity.ok(
                 orderService.updateOrderStatus(id, status)
         );
+
+
     }
 
     @DeleteMapping("/{id}")
@@ -73,5 +85,23 @@ public class OrderController {
         return orderService.cancelOrder(id);
     }
 
+    @PatchMapping("/{id}/payment-confirm")
+    public ResponseEntity<OrderResponse> confirmPayment(
+            @PathVariable Long id,
+            HttpServletRequest request) {
 
+        if (!Boolean.TRUE.equals(
+                request.getAttribute(
+                        "INTERNAL_SERVICE_AUTHENTICATED"))) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Internal service access required"
+            );
+        }
+
+        return ResponseEntity.ok(
+                orderService.confirmPayment(id)
+        );
+    }
 }

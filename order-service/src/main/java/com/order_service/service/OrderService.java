@@ -9,6 +9,8 @@ public interface OrderService {
 
     OrderResponse createOrder(CreateOrderRequest request);
 
+    OrderResponse confirmPayment(Long id);
+
     OrderResponse getOrderById(Long id);
 
     List<OrderResponse> getAllOrders();

@@ -1,24 +1,20 @@
-package com.order_service.config;
+package com.payment_service.config;
 
-import com.order_service.security.InternalServiceFilter;
-import com.order_service.security.JwtAuthenticationFilter;
+import com.payment_service.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
-@EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final InternalServiceFilter internalServiceFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -35,50 +31,38 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/payments"
+                        ).hasRole("CUSTOMER")
+
+                        .requestMatchers(
                                 HttpMethod.GET,
-                                "/api/orders/**"
-                        ).hasAnyRole("CUSTOMER", "ADMIN")
+                                "/api/payments/**"
+                        ).hasAnyRole(
+                                "CUSTOMER",
+                                "ADMIN"
+                        )
 
                         .requestMatchers(
                                 HttpMethod.POST,
-                                "/api/orders"
-                        ).hasRole("CUSTOMER")
-
-                        .requestMatchers(
-                                HttpMethod.PATCH,
-                                "/api/orders/*/status"
+                                "/api/payments/*/process"
                         ).hasRole("ADMIN")
 
+                        // Fail payment
                         .requestMatchers(
                                 HttpMethod.PUT,
-                                "/api/orders/*/cancel"
-                        ).hasRole("CUSTOMER")
-
-                        .requestMatchers(
-                                HttpMethod.PATCH,
-                                "/api/orders/*/payment-confirm"
-                        ).permitAll()
-
-                        .requestMatchers(
-                                HttpMethod.PATCH,
-                                "/api/orders/**"
+                                "/api/payments/*/fail"
                         ).hasRole("ADMIN")
 
+                        // Refund payment
                         .requestMatchers(
-                                HttpMethod.DELETE,
-                                "/api/orders/**"
+                                HttpMethod.POST,
+                                "/api/payments/*/refund"
                         ).hasRole("ADMIN")
 
                         .anyRequest().authenticated()
                 )
 
-                // Internal service authentication
-                .addFilterBefore(
-                        internalServiceFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                )
-
-                // User JWT authentication
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class

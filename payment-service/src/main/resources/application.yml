@@ -1,26 +1,19 @@
 server:
-  port: 8084
-
-internal:
-  service:
-   secret: order-payment-secret
+  port: 8085
 
 spring:
   application:
-    name: order-service
+    name: payment-service
 
   datasource:
-    url: jdbc:mysql://localhost:3306/ecommerce_order_db
+    url: jdbc:mysql://localhost:3306/ecommerce_payment_db
     username: root
     password: ramesh2929
-    driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
       ddl-auto: update
-
     show-sql: true
-
     properties:
       hibernate:
         format_sql: true
@@ -34,4 +27,6 @@ jwt:
   secret: 1234567890123456789012345678901234567890123456789012345678901234
 
 
-
+internal:
+  service:
+    secret: order-payment-secret
